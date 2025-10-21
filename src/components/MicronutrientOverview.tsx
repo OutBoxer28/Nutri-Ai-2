@@ -6,12 +6,13 @@ import {
 } from "@/components/ui/accordion";
 import { Progress } from "@/components/ui/progress";
 
-const micronutrients = [
-  { name: "Iron", consumed: 12, goal: 18, unit: "mg" },
-  { name: "Calcium", consumed: 800, goal: 1000, unit: "mg" },
-  { name: "Vitamin C", consumed: 70, goal: 90, unit: "mg" },
-  { name: "Vitamin D", consumed: 10, goal: 15, unit: "µg" },
-  { name: "Potassium", consumed: 2500, goal: 3500, unit: "mg" },
+// Define the structure and goals for micronutrients
+const micronutrientGoals = [
+  { name: "Iron", goal: 18, unit: "mg" },
+  { name: "Calcium", goal: 1000, unit: "mg" },
+  { name: "Vitamin C", goal: 90, unit: "mg" },
+  { name: "Vitamin D", goal: 15, unit: "µg" },
+  { name: "Potassium", goal: 3500, unit: "mg" },
 ];
 
 const NutrientProgress = ({
@@ -32,11 +33,22 @@ const NutrientProgress = ({
         {consumed}/{goal} {unit}
       </span>
     </div>
-    <Progress value={(consumed / goal) * 100} className="h-2" />
+    <Progress value={goal > 0 ? (consumed / goal) * 100 : 0} className="h-2" />
   </div>
 );
 
-export const MicronutrientOverview = () => {
+interface MicronutrientOverviewProps {
+  date: Date;
+}
+
+export const MicronutrientOverview = ({ date }: MicronutrientOverviewProps) => {
+  // NOTE: Micronutrient data is not yet tracked in the 'foods' table.
+  // As a result, 'consumed' values will be 0 until this is implemented.
+  const micronutrients = micronutrientGoals.map(nutrient => ({
+    ...nutrient,
+    consumed: 0, // All consumed values are 0 for now
+  }));
+
   return (
     <Accordion type="single" collapsible className="w-full">
       <AccordionItem value="item-1" className="border-none">
