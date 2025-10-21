@@ -12,7 +12,7 @@ import { format } from "date-fns";
 type MealLogWithFood = {
   foods: {
     calories: number;
-  };
+  } | null;
   quantity: number;
   meal_type: "Breakfast" | "Lunch" | "Dinner" | "Snacks";
 };
@@ -46,7 +46,7 @@ export const MealTimeline = () => {
 
   const { data: mealLogs } = useQuery({
     queryKey: ["mealLogs", today],
-    queryFn: async (): Promise<MealLogWithFood[]> => {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("meal_logs")
         .select("quantity, meal_type, foods(calories)")

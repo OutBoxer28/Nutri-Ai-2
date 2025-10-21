@@ -10,7 +10,7 @@ type MealLogWithFood = {
     protein: number;
     carbs: number;
     fats: number;
-  };
+  } | null;
   quantity: number;
 };
 
@@ -19,7 +19,7 @@ export const DailySummaryCard = () => {
 
   const { data: mealLogs } = useQuery({
     queryKey: ["mealLogs", today],
-    queryFn: async (): Promise<MealLogWithFood[]> => {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("meal_logs")
         .select("quantity, foods(calories, protein, carbs, fats)")
