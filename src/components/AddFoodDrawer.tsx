@@ -60,15 +60,12 @@ export const AddFoodDrawer = ({
   const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateFoodOpen, setIsCreateFoodOpen] = useState(false);
+  const [createFoodInitialData, setCreateFoodInitialData] = useState<any | undefined>(undefined);
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("search");
   
-  // Barcode state
-  const [scannedFood, setScannedFood] = useState<any | null>(null);
-  const [lookupError, setLookupError] = useState<string | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
 
-  // Image recognition state
   const [recognizedFoods, setRecognizedFoods] = useState<any[]>([]);
   const [isRecognizing, setIsRecognizing] = useState(false);
 
@@ -111,11 +108,8 @@ export const AddFoodDrawer = ({
     }
   };
 
-  // Barcode Scanning Logic
   const handleScanSuccess = async (decodedText: string) => {
     setIsLookingUp(true);
-    setScannedFood(null);
-    setLookupError(null);
     const toastId = showLoading("Looking up barcode...");
 
     try {
@@ -123,13 +117,13 @@ export const AddFoodDrawer = ({
       dismissToast(toastId);
       if (error) throw new Error(error.message);
       if (data.error) throw new Error(data.error);
-      setScannedFood(data);
-      showSuccess("Food found!");
+      
+      setCreateFoodInitialData(data);
+      setIsCreateFoodOpen(true);
+      onOpenChange(false); // Close the drawer
     } catch (err: any) {
       dismissToast(toastId);
-      const errorMessage = err.message || "Could not find food for this barcode.";
-      showError(errorMessage);
-      setLookupError(errorMessage);
+      showError(err.message || "Could not find food for this barcode.");
     } finally {
       setIsLookingUp(false);
     }
@@ -137,28 +131,6 @@ export const AddFoodDrawer = ({
 
   const handleScanFailure = (error: string) => console.error(`Barcode scan failed: ${error}`);
 
-  const handleAddScannedFood = async () => {
-    if (!scannedFood) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      showError("You must be logged in to log food.");
-      return;
-    }
-
-    const toastId = showLoading(`Adding ${scannedFood.name}...`);
-    const { data: newFood, error: insertFoodError } = await supabase.from("foods").insert({ ...scannedFood, user_id: user.id }).select().single();
-
-    if (insertFoodError || !newFood) {
-      dismissToast(toastId);
-      showError("Failed to save the new food.");
-      return;
-    }
-    await handleAddFood(newFood.id, newFood.name);
-    dismissToast(toastId);
-    setScannedFood(null);
-  };
-
-  // Image Recognition Logic
   const handleCapture = async () => {
     setIsRecognizing(true);
     setRecognizedFoods([]);
@@ -168,7 +140,6 @@ export const AddFoodDrawer = ({
       const { data, error } = await supabase.functions.invoke("recognize-food-from-image");
       dismissToast(toastId);
       if (error) throw new Error(error.message);
-      // Filter out items that don't have nutrition data
       const validFoods = data.foods.filter((food: any) => food.nutrition);
       setRecognizedFoods(validFoods);
       showSuccess("We've identified some items!");
@@ -180,26 +151,16 @@ export const AddFoodDrawer = ({
     }
   };
 
-  const handleAddRecognizedFood = async (food: any) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      showError("You must be logged in to log food.");
-      return;
-    }
-
-    const toastId = showLoading(`Adding ${food.name}...`);
-    const { data: newFood, error: insertFoodError } = await supabase.from("foods").insert({ ...food.nutrition, name: food.name, user_id: user.id }).select().single();
-    
-    if (insertFoodError || !newFood) {
-      dismissToast(toastId);
-      showError("Failed to save the new food.");
-      return;
-    }
-    await handleAddFood(newFood.id, newFood.name);
-    dismissToast(toastId);
-    // Remove from list after adding
-    setRecognizedFoods(prev => prev.filter(f => f.name !== food.name));
+  const handleConfirmRecognizedFood = (food: any) => {
+    setCreateFoodInitialData({ ...food.nutrition, name: food.name });
+    setIsCreateFoodOpen(true);
+    onOpenChange(false); // Close the drawer
   };
+
+  const openCreateFoodDialog = () => {
+    setCreateFoodInitialData(undefined);
+    setIsCreateFoodOpen(true);
+  }
 
   const content = (
     <>
@@ -234,16 +195,6 @@ export const AddFoodDrawer = ({
         <TabsContent value="barcode" className="mt-4">
           {activeTab === "barcode" && <BarcodeScanner onScanSuccess={handleScanSuccess} onScanFailure={handleScanFailure} />}
           {isLookingUp && <div className="flex items-center justify-center p-4"><Loader2 className="h-8 w-8 animate-spin" /><p className="ml-2">Looking up barcode...</p></div>}
-          {lookupError && <p className="text-destructive text-center p-4">{lookupError}</p>}
-          {scannedFood && (
-            <Card className="mt-4 bg-secondary">
-              <CardContent className="p-3">
-                <p className="font-semibold">{scannedFood.name}</p>
-                <p className="text-sm text-muted-foreground">{scannedFood.calories} kcal, {scannedFood.serving_size}</p>
-                <Button className="w-full mt-2" onClick={handleAddScannedFood}>Add to {mealType}</Button>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
 
         <TabsContent value="scan" className="mt-4">
@@ -261,7 +212,7 @@ export const AddFoodDrawer = ({
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setRecognizedFoods(prev => prev.filter(f => f.name !== food.name))}><X className="h-5 w-5" /></Button>
-                      <Button size="icon" variant="ghost" className="text-primary" onClick={() => handleAddRecognizedFood(food)}><Check className="h-5 w-5" /></Button>
+                      <Button size="icon" variant="ghost" className="text-primary" onClick={() => handleConfirmRecognizedFood(food)}><Check className="h-5 w-5" /></Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -271,32 +222,38 @@ export const AddFoodDrawer = ({
         </TabsContent>
       </Tabs>
       <div className="mt-4">
-        <Button variant="outline" className="w-full" onClick={() => setIsCreateFoodOpen(true)}><Plus className="h-4 w-4 mr-2" />Create New Food</Button>
+        <Button variant="outline" className="w-full" onClick={openCreateFoodDialog}><Plus className="h-4 w-4 mr-2" />Create New Food</Button>
       </div>
-      <CreateFoodDialog isOpen={isCreateFoodOpen} onOpenChange={setIsCreateFoodOpen} />
     </>
   );
 
   const title = `Add to ${mealType}`;
   const description = "Search for a food, or create a new one to add to your library.";
 
-  if (isMobile) {
-    return (
-      <Drawer open={isOpen} onOpenChange={onOpenChange}>
-        <DrawerContent className="p-4">
-          <DrawerHeader className="text-left p-0"><DrawerTitle>{title}</DrawerTitle><DrawerDescription>{description}</DrawerDescription></DrawerHeader>
-          <div className="mt-4">{content}</div>
-        </DrawerContent>
-      </Drawer>
-    );
-  }
-
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{description}</DialogDescription></DialogHeader>
-        <div className="mt-4">{content}</div>
-      </DialogContent>
-    </Dialog>
+    <>
+      {isMobile ? (
+        <Drawer open={isOpen} onOpenChange={onOpenChange}>
+          <DrawerContent className="p-4">
+            <DrawerHeader className="text-left p-0"><DrawerTitle>{title}</DrawerTitle><DrawerDescription>{description}</DrawerDescription></DrawerHeader>
+            <div className="mt-4">{content}</div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{description}</DialogDescription></DialogHeader>
+            <div className="mt-4">{content}</div>
+          </DialogContent>
+        </Dialog>
+      )}
+      <CreateFoodDialog 
+        isOpen={isCreateFoodOpen} 
+        onOpenChange={setIsCreateFoodOpen} 
+        initialData={createFoodInitialData}
+        mealType={mealType}
+        logDate={logDate}
+      />
+    </>
   );
 };

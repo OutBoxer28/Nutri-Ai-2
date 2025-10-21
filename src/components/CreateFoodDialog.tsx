@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,7 @@ import * as z from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from "@/utils/toast";
+import { format } from "date-fns";
 
 const foodSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -39,11 +41,17 @@ type FoodFormValues = z.infer<typeof foodSchema>;
 interface CreateFoodDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  initialData?: Partial<FoodFormValues>;
+  mealType?: string;
+  logDate?: Date;
 }
 
 export const CreateFoodDialog = ({
   isOpen,
   onOpenChange,
+  initialData,
+  mealType,
+  logDate,
 }: CreateFoodDialogProps) => {
   const queryClient = useQueryClient();
   const form = useForm<FoodFormValues>({
@@ -58,6 +66,21 @@ export const CreateFoodDialog = ({
     },
   });
 
+  useEffect(() => {
+    if (initialData) {
+      form.reset(initialData);
+    } else {
+      form.reset({
+        name: "",
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fats: 0,
+        serving_size: "",
+      });
+    }
+  }, [initialData, form]);
+
   const onSubmit = async (values: FoodFormValues) => {
     const {
       data: { user },
@@ -67,17 +90,36 @@ export const CreateFoodDialog = ({
       return;
     }
 
-    const { error } = await supabase
+    const { data: newFood, error } = await supabase
       .from("foods")
-      .insert({ ...values, user_id: user.id });
+      .insert({ ...values, user_id: user.id })
+      .select()
+      .single();
 
-    if (error) {
+    if (error || !newFood) {
       showError("Failed to create food.");
     } else {
       showSuccess("Food created successfully!");
       queryClient.invalidateQueries({ queryKey: ["foods"] });
+
+      if (mealType && logDate) {
+        const formattedDate = format(logDate, "yyyy-MM-dd");
+        const { error: logError } = await supabase.from("meal_logs").insert({
+          user_id: user.id,
+          food_id: newFood.id,
+          meal_type: mealType,
+          log_date: formattedDate,
+          quantity: 1,
+        });
+
+        if (logError) {
+          showError(`Failed to log ${newFood.name}.`);
+        } else {
+          showSuccess(`${newFood.name} logged successfully!`);
+          queryClient.invalidateQueries({ queryKey: ["mealLogs", formattedDate] });
+        }
+      }
       onOpenChange(false);
-      form.reset();
     }
   };
 
@@ -176,7 +218,7 @@ export const CreateFoodDialog = ({
             </div>
             <DialogFooter>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Saving..." : "Save Food"}
+                {form.formState.isSubmitting ? "Saving..." : "Save and Log Food"}
               </Button>
             </DialogFooter>
           </form>
