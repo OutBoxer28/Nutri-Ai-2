@@ -31,6 +31,10 @@ const profileSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
   last_name: z.string().min(1, "Last name is required"),
   avatar_url: z.string().nullable(),
+  calorie_goal: z.coerce.number().min(0, "Must be positive"),
+  protein_goal: z.coerce.number().min(0, "Must be positive"),
+  carb_goal: z.coerce.number().min(0, "Must be positive"),
+  fat_goal: z.coerce.number().min(0, "Must be positive"),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -67,6 +71,10 @@ const Profile = () => {
       first_name: "",
       last_name: "",
       avatar_url: null,
+      calorie_goal: 2200,
+      protein_goal: 150,
+      carb_goal: 250,
+      fat_goal: 70,
     },
   });
 
@@ -76,6 +84,10 @@ const Profile = () => {
         first_name: profile.first_name || "",
         last_name: profile.last_name || "",
         avatar_url: profile.avatar_url || null,
+        calorie_goal: profile.calorie_goal || 2200,
+        protein_goal: profile.protein_goal || 150,
+        carb_goal: profile.carb_goal || 250,
+        fat_goal: profile.fat_goal || 70,
       });
     }
   }, [profile, form]);
@@ -139,43 +151,84 @@ const Profile = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6">
-      <h1 className="text-3xl font-bold mb-6">Profile</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Personal Information</CardTitle>
-          <CardDescription>
-            Update your photo and personal details here.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="avatar_url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Profile Photo</FormLabel>
-                    <FormControl>
-                      <AvatarUploader
-                        url={field.value}
-                        onUpload={handleAvatarUpload}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="container mx-auto p-4 md:p-6 space-y-6">
+      <h1 className="text-3xl font-bold">Profile</h1>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Personal Information</CardTitle>
+              <CardDescription>
+                Update your photo and personal details here.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
                 <FormField
                   control={form.control}
-                  name="first_name"
+                  name="avatar_url"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>First Name</FormLabel>
+                      <FormLabel>Profile Photo</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <AvatarUploader
+                          url={field.value}
+                          onUpload={handleAvatarUpload}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="first_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="last_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Nutrition Goals</CardTitle>
+              <CardDescription>
+                Set your daily nutrition targets.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <FormField
+                  control={form.control}
+                  name="calorie_goal"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Calories (kcal)</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -183,27 +236,54 @@ const Profile = () => {
                 />
                 <FormField
                   control={form.control}
-                  name="last_name"
+                  name="protein_goal"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel>
+                      <FormLabel>Protein (g)</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input type="number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="carb_goal"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Carbs (g)</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="fat_goal"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fats (g)</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-              <div className="flex justify-end">
-                <Button type="submit" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? "Saving..." : "Save Changes"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end">
+            <Button type="submit" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </form>
+      </Form>
     </div>
   );
 };
