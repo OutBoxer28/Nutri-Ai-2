@@ -36,11 +36,15 @@ import { showError, showSuccess, showLoading, dismissToast } from "@/utils/toast
 import { format } from "date-fns";
 import BarcodeScanner from "./BarcodeScanner";
 import { FoodCamera } from "./FoodCamera";
+import { useDebounce } from "@/hooks/use-debounce";
 
 type Food = {
   id: string;
   name: string;
   calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
   serving_size: string;
 };
 
@@ -59,6 +63,7 @@ export const AddFoodDrawer = ({
 }: AddFoodDrawerProps) => {
   const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [isCreateFoodOpen, setIsCreateFoodOpen] = useState(false);
   const [createFoodInitialData, setCreateFoodInitialData] = useState<any | undefined>(undefined);
   const queryClient = useQueryClient();
@@ -69,43 +74,22 @@ export const AddFoodDrawer = ({
   const [recognizedFoods, setRecognizedFoods] = useState<any[]>([]);
   const [isRecognizing, setIsRecognizing] = useState(false);
 
-  const { data: foods, isLoading: isSearchLoading } = useQuery({
-    queryKey: ["foods", searchQuery],
+  const { data: searchResults, isLoading: isSearchLoading } = useQuery({
+    queryKey: ["foodSearch", debouncedSearchQuery],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("foods")
-        .select("id, name, calories, serving_size")
-        .ilike("name", `%${searchQuery}%`)
-        .limit(10);
+      const { data, error } = await supabase.functions.invoke("search-foods-by-name", {
+        body: { query: debouncedSearchQuery },
+      });
       if (error) throw new Error(error.message);
-      return data;
+      return data as Food[];
     },
-    enabled: searchQuery.length > 2,
+    enabled: debouncedSearchQuery.length > 2,
   });
 
-  const handleAddFood = async (foodId: string, foodName: string) => {
-    const formattedDate = format(logDate, "yyyy-MM-dd");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      showError("You must be logged in to log food.");
-      return;
-    }
-
-    const { error } = await supabase.from("meal_logs").insert({
-      user_id: user.id,
-      food_id: foodId,
-      meal_type: mealType,
-      log_date: formattedDate,
-      quantity: 1,
-    });
-
-    if (error) {
-      showError(`Failed to log ${foodName}.`);
-    } else {
-      showSuccess(`${foodName} logged successfully!`);
-      queryClient.invalidateQueries({ queryKey: ["mealLogs", formattedDate] });
-      onOpenChange(false);
-    }
+  const handleSelectSearchResult = (food: Food) => {
+    setCreateFoodInitialData(food);
+    setIsCreateFoodOpen(true);
+    onOpenChange(false);
   };
 
   const handleScanSuccess = async (decodedText: string) => {
@@ -120,7 +104,7 @@ export const AddFoodDrawer = ({
       
       setCreateFoodInitialData(data);
       setIsCreateFoodOpen(true);
-      onOpenChange(false); // Close the drawer
+      onOpenChange(false);
     } catch (err: any) {
       dismissToast(toastId);
       showError(err.message || "Could not find food for this barcode.");
@@ -154,7 +138,7 @@ export const AddFoodDrawer = ({
   const handleConfirmRecognizedFood = (food: any) => {
     setCreateFoodInitialData({ ...food.nutrition, name: food.name });
     setIsCreateFoodOpen(true);
-    onOpenChange(false); // Close the drawer
+    onOpenChange(false);
   };
 
   const openCreateFoodDialog = () => {
@@ -177,18 +161,21 @@ export const AddFoodDrawer = ({
             <Input type="search" placeholder="Search for food..." className="pl-8" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
           <div className="mt-4 space-y-2 max-h-[40vh] overflow-y-auto">
-            {isSearchLoading && <p>Loading...</p>}
-            {foods?.map((food) => (
+            {isSearchLoading && <p className="text-center text-sm text-muted-foreground">Searching...</p>}
+            {searchResults?.map((food) => (
               <Card key={food.id} className="bg-secondary">
                 <CardContent className="p-3 flex items-center justify-between">
                   <div>
                     <p className="font-semibold">{food.name}</p>
-                    <p className="text-sm text-muted-foreground">{food.calories} kcal, {food.serving_size}</p>
+                    <p className="text-sm text-muted-foreground">{Math.round(food.calories)} kcal, {food.serving_size}</p>
                   </div>
-                  <Button size="icon" variant="ghost" onClick={() => handleAddFood(food.id, food.name)}><Plus className="h-5 w-5" /></Button>
+                  <Button size="icon" variant="ghost" onClick={() => handleSelectSearchResult(food)}><Plus className="h-5 w-5" /></Button>
                 </CardContent>
               </Card>
             ))}
+             {searchResults && searchResults.length === 0 && debouncedSearchQuery.length > 2 && (
+              <p className="text-center text-sm text-muted-foreground">No results found.</p>
+            )}
           </div>
         </TabsContent>
 
