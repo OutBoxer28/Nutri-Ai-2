@@ -12,7 +12,7 @@ import { format } from "date-fns";
 type MealLogWithFood = {
   foods: {
     calories: number;
-  } | null;
+  }[] | null;
   quantity: number;
   meal_type: "Breakfast" | "Lunch" | "Dinner" | "Snacks";
 };
@@ -39,18 +39,22 @@ const MealCard = ({
   </Card>
 );
 
-export const MealTimeline = () => {
+interface MealTimelineProps {
+  date: Date;
+}
+
+export const MealTimeline = ({ date }: MealTimelineProps) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedMealType, setSelectedMealType] = useState("");
-  const today = format(new Date(), "yyyy-MM-dd");
+  const formattedDate = format(date, "yyyy-MM-dd");
 
   const { data: mealLogs } = useQuery({
-    queryKey: ["mealLogs", today],
+    queryKey: ["mealLogs", formattedDate],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("meal_logs")
         .select("quantity, meal_type, foods(calories)")
-        .eq("log_date", today);
+        .eq("log_date", formattedDate);
       if (error) throw new Error(error.message);
       return data as MealLogWithFood[];
     },
@@ -64,8 +68,9 @@ export const MealTimeline = () => {
   };
 
   mealLogs?.forEach((log) => {
-    if (log.foods) {
-      mealCalories[log.meal_type] += log.foods.calories * log.quantity;
+    const food = log.foods?.[0];
+    if (food) {
+      mealCalories[log.meal_type] += food.calories * log.quantity;
     }
   });
 
@@ -95,6 +100,7 @@ export const MealTimeline = () => {
         isOpen={isDrawerOpen}
         onOpenChange={setIsDrawerOpen}
         mealType={selectedMealType}
+        logDate={date}
       />
     </>
   );

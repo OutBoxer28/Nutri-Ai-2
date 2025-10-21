@@ -10,20 +10,24 @@ type MealLogWithFood = {
     protein: number;
     carbs: number;
     fats: number;
-  } | null;
+  }[] | null;
   quantity: number;
 };
 
-export const DailySummaryCard = () => {
-  const today = format(new Date(), "yyyy-MM-dd");
+interface DailySummaryCardProps {
+  date: Date;
+}
+
+export const DailySummaryCard = ({ date }: DailySummaryCardProps) => {
+  const formattedDate = format(date, "yyyy-MM-dd");
 
   const { data: mealLogs } = useQuery({
-    queryKey: ["mealLogs", today],
+    queryKey: ["mealLogs", formattedDate],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("meal_logs")
         .select("quantity, foods(calories, protein, carbs, fats)")
-        .eq("log_date", today);
+        .eq("log_date", formattedDate);
       if (error) throw new Error(error.message);
       return data as MealLogWithFood[];
     },
@@ -37,11 +41,12 @@ export const DailySummaryCard = () => {
   };
 
   mealLogs?.forEach((log) => {
-    if (log.foods) {
-      totals.calories += log.foods.calories * log.quantity;
-      totals.protein += log.foods.protein * log.quantity;
-      totals.carbs += log.foods.carbs * log.quantity;
-      totals.fats += log.foods.fats * log.quantity;
+    const food = log.foods?.[0];
+    if (food) {
+      totals.calories += food.calories * log.quantity;
+      totals.protein += food.protein * log.quantity;
+      totals.carbs += food.carbs * log.quantity;
+      totals.fats += food.fats * log.quantity;
     }
   });
 

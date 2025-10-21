@@ -48,12 +48,14 @@ interface AddFoodDrawerProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   mealType: string;
+  logDate: Date;
 }
 
 export const AddFoodDrawer = ({
   isOpen,
   onOpenChange,
   mealType,
+  logDate,
 }: AddFoodDrawerProps) => {
   const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState("");
@@ -85,7 +87,7 @@ export const AddFoodDrawer = ({
   });
 
   const handleAddFood = async (foodId: string, foodName: string) => {
-    const today = format(new Date(), "yyyy-MM-dd");
+    const formattedDate = format(logDate, "yyyy-MM-dd");
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       showError("You must be logged in to log food.");
@@ -96,7 +98,7 @@ export const AddFoodDrawer = ({
       user_id: user.id,
       food_id: foodId,
       meal_type: mealType,
-      log_date: today,
+      log_date: formattedDate,
       quantity: 1,
     });
 
@@ -104,7 +106,7 @@ export const AddFoodDrawer = ({
       showError(`Failed to log ${foodName}.`);
     } else {
       showSuccess(`${foodName} logged successfully!`);
-      queryClient.invalidateQueries({ queryKey: ["mealLogs", today] });
+      queryClient.invalidateQueries({ queryKey: ["mealLogs", formattedDate] });
       onOpenChange(false);
     }
   };

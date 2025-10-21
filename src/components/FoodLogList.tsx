@@ -21,7 +21,7 @@ type MealLog = {
     name: string;
     calories: number;
     serving_size: string;
-  } | null;
+  }[] | null;
 };
 
 const groupLogsByDate = (logs: MealLog[]) => {
@@ -84,7 +84,7 @@ export const FoodLogList = () => {
           {dates.map((date) => {
             const dayLogs = groupedByDate[date];
             const totalCalories = dayLogs.reduce(
-              (sum, log) => sum + (log.foods?.calories || 0) * log.quantity,
+              (sum, log) => sum + (log.foods?.[0]?.calories || 0) * log.quantity,
               0
             );
             const groupedByMeal = groupLogsByMeal(dayLogs);
@@ -104,18 +104,19 @@ export const FoodLogList = () => {
                     {Object.entries(groupedByMeal).map(([mealType, mealLogs]) => (
                       <div key={mealType}>
                         <h4 className="font-semibold mb-2 px-3">{mealType}</h4>
-                        {mealLogs.map((log) =>
-                          log.foods ? (
+                        {mealLogs.map((log) => {
+                          const food = log.foods?.[0];
+                          return food ? (
                             <LoggedFoodItem
                               key={log.id}
                               logId={log.id}
-                              foodName={log.foods.name}
-                              calories={log.foods.calories}
+                              foodName={food.name}
+                              calories={food.calories}
                               quantity={log.quantity}
-                              servingSize={log.foods.serving_size}
+                              servingSize={food.serving_size}
                             />
-                          ) : null
-                        )}
+                          ) : null;
+                        })}
                       </div>
                     ))}
                   </div>

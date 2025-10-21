@@ -12,7 +12,7 @@ type MealLogWithFood = {
     protein: number;
     carbs: number;
     fats: number;
-  } | null;
+  }[] | null;
   quantity: number;
 };
 
@@ -32,16 +32,20 @@ const StatCard = ({
   </div>
 );
 
-export const QuickStats = () => {
-  const today = format(new Date(), "yyyy-MM-dd");
+interface QuickStatsProps {
+  date: Date;
+}
+
+export const QuickStats = ({ date }: QuickStatsProps) => {
+  const formattedDate = format(date, "yyyy-MM-dd");
 
   const { data: mealLogs } = useQuery({
-    queryKey: ["mealLogs", today],
+    queryKey: ["mealLogs", formattedDate],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("meal_logs")
         .select("quantity, foods(protein, carbs, fats)")
-        .eq("log_date", today);
+        .eq("log_date", formattedDate);
       if (error) throw new Error(error.message);
       return data as MealLogWithFood[];
     },
@@ -49,10 +53,11 @@ export const QuickStats = () => {
 
   const totals = { protein: 0, carbs: 0, fats: 0 };
   mealLogs?.forEach((log) => {
-    if (log.foods) {
-      totals.protein += log.foods.protein * log.quantity;
-      totals.carbs += log.foods.carbs * log.quantity;
-      totals.fats += log.foods.fats * log.quantity;
+    const food = log.foods?.[0];
+    if (food) {
+      totals.protein += food.protein * log.quantity;
+      totals.carbs += food.carbs * log.quantity;
+      totals.fats += food.fats * log.quantity;
     }
   });
 
