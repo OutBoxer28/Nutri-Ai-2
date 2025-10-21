@@ -19,14 +19,14 @@ export const FoodCamera = ({ onCapture, isRecognizing }: FoodCameraProps) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const startCamera = async () => {
-    if (streamRef.current) return; // Already streaming
+    if (streamRef.current) return;
 
     setCameraState("starting");
     setErrorMessage(null);
 
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: { facingMode: { ideal: "environment" } },
       });
       streamRef.current = mediaStream;
       if (videoRef.current) {
@@ -37,7 +37,7 @@ export const FoodCamera = ({ onCapture, isRecognizing }: FoodCameraProps) => {
       }
     } catch (err) {
       console.error("Error accessing camera:", err);
-      let message = "Could not access camera. Please check permissions.";
+      let message = "Could not access camera. Please check permissions or ensure a camera is available.";
       if (err instanceof Error) {
         if (err.name === "NotAllowedError") {
           message = "Camera access was denied. Please allow camera access in your browser settings.";

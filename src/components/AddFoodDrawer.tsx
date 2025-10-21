@@ -74,13 +74,14 @@ export const AddFoodDrawer = ({
   const [recognizedFoods, setRecognizedFoods] = useState<any[]>([]);
   const [isRecognizing, setIsRecognizing] = useState(false);
 
-  const { data: searchResults, isLoading: isSearchLoading } = useQuery({
-    queryKey: ["foodSearch", debouncedSearchQuery],
+  const { data: searchResults, isLoading: isSearchLoading, error: searchError } = useQuery({
+    queryKey: ["geminiFoodSearch", debouncedSearchQuery],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("search-foods-by-name", {
+      const { data, error } = await supabase.functions.invoke("search-food-with-gemini", {
         body: { query: debouncedSearchQuery },
       });
       if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
       return data as Food[];
     },
     enabled: debouncedSearchQuery.length > 2,
@@ -158,10 +159,11 @@ export const AddFoodDrawer = ({
         <TabsContent value="search" className="mt-4">
           <div className="relative">
             <SearchIcon className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Search for food..." className="pl-8" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            <Input type="search" placeholder="e.g., 'bowl of oatmeal with fruit'" className="pl-8" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
           </div>
           <div className="mt-4 space-y-2 max-h-[40vh] overflow-y-auto">
-            {isSearchLoading && <p className="text-center text-sm text-muted-foreground">Searching...</p>}
+            {isSearchLoading && <p className="text-center text-sm text-muted-foreground">Asking Gemini...</p>}
+            {searchError && <p className="text-center text-sm text-destructive">{searchError.message}</p>}
             {searchResults?.map((food) => (
               <Card key={food.id} className="bg-secondary">
                 <CardContent className="p-3 flex items-center justify-between">
@@ -173,7 +175,7 @@ export const AddFoodDrawer = ({
                 </CardContent>
               </Card>
             ))}
-             {searchResults && searchResults.length === 0 && debouncedSearchQuery.length > 2 && (
+             {searchResults && searchResults.length === 0 && debouncedSearchQuery.length > 2 && !isSearchLoading && (
               <p className="text-center text-sm text-muted-foreground">No results found.</p>
             )}
           </div>
