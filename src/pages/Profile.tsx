@@ -60,7 +60,9 @@ const Profile = () => {
         .eq("id", user.id)
         .single();
 
-      if (error) throw new Error(error.message);
+      if (error && error.code !== "PGRST116") {
+        throw new Error(error.message);
+      }
       return data;
     },
   });
@@ -103,8 +105,7 @@ const Profile = () => {
 
     const { error } = await supabase
       .from("profiles")
-      .update(values)
-      .eq("id", user.id);
+      .upsert({ id: user.id, ...values });
 
     if (error) {
       showError("Failed to update profile.");
