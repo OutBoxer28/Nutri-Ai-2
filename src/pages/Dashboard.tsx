@@ -8,7 +8,7 @@ import { MadeWithDyad } from "@/components/made-with-dyad";
 
 const Dashboard = () => {
   return (
-    <div className="bg-background text-foreground min-h-screen font-sans">
+    <div className="bg-background text-foreground font-sans">
       <div className="container mx-auto max-w-2xl p-4 md:p-6">
         <DashboardHeader />
         <main className="grid gap-6 mt-6">

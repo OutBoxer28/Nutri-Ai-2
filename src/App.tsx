@@ -7,6 +7,10 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import FoodLog from "./pages/FoodLog";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
+import { Layout } from "./components/Layout";
 import { supabase } from "./integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
 
@@ -49,10 +53,15 @@ const App = () => {
           <Login />
         ) : (
           <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/foodlog" element={<FoodLog />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Layout>
           </BrowserRouter>
         )}
       </TooltipProvider>
