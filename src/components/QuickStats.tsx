@@ -3,12 +3,18 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Flame } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 
-const macroData = [
-  { name: "Protein", value: 30, color: "hsl(var(--primary))" },
-  { name: "Carbs", value: 45, color: "hsl(var(--warning))" },
-  { name: "Fats", value: 25, color: "hsl(var(--destructive))" },
-];
+type MealLogWithFood = {
+  foods: {
+    protein: number;
+    carbs: number;
+    fats: number;
+  };
+  quantity: number;
+};
 
 const StatCard = ({
   title,
@@ -27,6 +33,49 @@ const StatCard = ({
 );
 
 export const QuickStats = () => {
+  const today = format(new Date(), "yyyy-MM-dd");
+
+  const { data: mealLogs } = useQuery({
+    queryKey: ["mealLogs", today],
+    queryFn: async (): Promise<MealLogWithFood[]> => {
+      const { data, error } = await supabase
+        .from("meal_logs")
+        .select("quantity, foods(protein, carbs, fats)")
+        .eq("log_date", today);
+      if (error) throw new Error(error.message);
+      return data as MealLogWithFood[];
+    },
+  });
+
+  const totals = { protein: 0, carbs: 0, fats: 0 };
+  mealLogs?.forEach((log) => {
+    if (log.foods) {
+      totals.protein += log.foods.protein * log.quantity;
+      totals.carbs += log.foods.carbs * log.quantity;
+      totals.fats += log.foods.fats * log.quantity;
+    }
+  });
+
+  const totalMacros = totals.protein + totals.carbs + totals.fats;
+
+  const macroData = [
+    {
+      name: "Protein",
+      value: totalMacros > 0 ? (totals.protein / totalMacros) * 100 : 0,
+      color: "hsl(var(--primary))",
+    },
+    {
+      name: "Carbs",
+      value: totalMacros > 0 ? (totals.carbs / totalMacros) * 100 : 33,
+      color: "hsl(var(--warning))",
+    },
+    {
+      name: "Fats",
+      value: totalMacros > 0 ? (totals.fats / totalMacros) * 100 : 33,
+      color: "hsl(var(--destructive))",
+    },
+  ];
+
   return (
     <Card className="bg-card border-none shadow-lg">
       <CardHeader>
@@ -34,8 +83,8 @@ export const QuickStats = () => {
       </CardHeader>
       <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-1 grid grid-cols-2 md:grid-cols-1 gap-4">
-          <StatCard title="Weekly Avg" value="2,150" />
-          <StatCard title="Streak" value="12" icon={Flame} />
+          <StatCard title="Weekly Avg" value="-" />
+          <StatCard title="Streak" value="-" icon={Flame} />
         </div>
         <div className="md:col-span-2 flex flex-col items-center justify-center min-h-[150px]">
           <p className="text-sm font-medium mb-2">Macro Ratio</p>
