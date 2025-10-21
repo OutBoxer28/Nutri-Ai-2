@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { showError, showSuccess } from "@/utils/toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Trash2, Pencil } from "lucide-react";
+import { EditLogEntryDialog } from "./EditLogEntryDialog";
 
 type LoggedFoodItemProps = {
   logId: string;
@@ -33,6 +35,7 @@ export const LoggedFoodItem = ({
   servingSize,
 }: LoggedFoodItemProps) => {
   const queryClient = useQueryClient();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const handleDelete = async () => {
     const { error } = await supabase.from("meal_logs").delete().eq("id", logId);
@@ -47,33 +50,47 @@ export const LoggedFoodItem = ({
   };
 
   return (
-    <div className="flex items-center justify-between p-3 hover:bg-secondary rounded-md">
-      <div>
-        <p className="font-semibold">{foodName}</p>
-        <p className="text-sm text-muted-foreground">
-          {quantity} x {servingSize} &bull; {(calories * quantity).toFixed(0)} kcal
-        </p>
-      </div>
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button variant="ghost" size="icon">
-            <Trash2 className="h-4 w-4 text-destructive" />
+    <>
+      <div className="flex items-center justify-between p-3 hover:bg-secondary rounded-md">
+        <div>
+          <p className="font-semibold">{foodName}</p>
+          <p className="text-sm text-muted-foreground">
+            {quantity} x {servingSize} &bull; {(calories * quantity).toFixed(0)} kcal
+          </p>
+        </div>
+        <div className="flex items-center">
+          <Button variant="ghost" size="icon" onClick={() => setIsEditDialogOpen(true)}>
+            <Pencil className="h-4 w-4 text-muted-foreground" />
           </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently remove this
-              item from your food log.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently remove this
+                  item from your food log.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+      <EditLogEntryDialog
+        isOpen={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        logId={logId}
+        foodName={foodName}
+        initialQuantity={quantity}
+      />
+    </>
   );
 };
