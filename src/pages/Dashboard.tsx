@@ -2,6 +2,8 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { DailySummaryCard } from "@/components/DailySummaryCard";
 import { MealTimeline } from "@/components/MealTimeline";
 import { WaterIntakeTracker } from "@/components/WaterIntakeTracker";
+import { MicronutrientOverview } from "@/components/MicronutrientOverview";
+import { QuickStats } from "@/components/QuickStats";
 import { MadeWithDyad } from "@/components/made-with-dyad";
 
 const Dashboard = () => {
@@ -11,7 +13,9 @@ const Dashboard = () => {
         <DashboardHeader />
         <main className="grid gap-6 mt-6">
           <DailySummaryCard />
+          <QuickStats />
           <MealTimeline />
+          <MicronutrientOverview />
           <WaterIntakeTracker />
         </main>
         <MadeWithDyad />
