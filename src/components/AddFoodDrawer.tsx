@@ -18,14 +18,21 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Barcode, Camera, Plus, Search as SearchIcon } from "lucide-react";
+import {
+  Barcode,
+  Camera,
+  Plus,
+  Search as SearchIcon,
+  Loader2,
+} from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent } from "./ui/card";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateFoodDialog } from "./CreateFoodDialog";
-import { showError, showSuccess } from "@/utils/toast";
+import { showError, showSuccess, showLoading, dismissToast } from "@/utils/toast";
 import { format } from "date-fns";
+import BarcodeScanner from "./BarcodeScanner";
 
 type Food = {
   id: string;
@@ -49,6 +56,10 @@ export const AddFoodDrawer = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateFoodOpen, setIsCreateFoodOpen] = useState(false);
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("search");
+  const [scannedFood, setScannedFood] = useState<any | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
 
   const { data: foods, isLoading } = useQuery({
     queryKey: ["foods", searchQuery],
@@ -79,7 +90,7 @@ export const AddFoodDrawer = ({
       food_id: food.id,
       meal_type: mealType,
       log_date: today,
-      quantity: 1, // Default quantity
+      quantity: 1,
     });
 
     if (error) {
@@ -91,15 +102,102 @@ export const AddFoodDrawer = ({
     }
   };
 
+  const handleScanSuccess = async (decodedText: string) => {
+    setIsLookingUp(true);
+    setScannedFood(null);
+    setLookupError(null);
+    const toastId = showLoading("Looking up barcode...");
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "lookup-food-by-barcode",
+        {
+          body: { barcode: decodedText },
+        },
+      );
+
+      dismissToast(toastId);
+
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
+
+      setScannedFood(data);
+      showSuccess("Food found!");
+    } catch (err: any) {
+      dismissToast(toastId);
+      const errorMessage = err.message || "Could not find food for this barcode.";
+      showError(errorMessage);
+      setLookupError(errorMessage);
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
+  const handleScanFailure = (error: string) => {
+    console.error(`Barcode scan failed: ${error}`);
+  };
+
+  const handleAddScannedFood = async () => {
+    if (!scannedFood) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      showError("You must be logged in to log food.");
+      return;
+    }
+
+    const toastId = showLoading(`Adding ${scannedFood.name}...`);
+
+    const { data: newFood, error: insertFoodError } = await supabase
+      .from("foods")
+      .insert({ ...scannedFood, user_id: user.id })
+      .select()
+      .single();
+
+    if (insertFoodError || !newFood) {
+      dismissToast(toastId);
+      showError("Failed to save the new food.");
+      console.error(insertFoodError);
+      return;
+    }
+
+    const today = format(new Date(), "yyyy-MM-dd");
+    const { error: logError } = await supabase.from("meal_logs").insert({
+      user_id: user.id,
+      food_id: newFood.id,
+      meal_type: mealType,
+      log_date: today,
+      quantity: 1,
+    });
+
+    dismissToast(toastId);
+    if (logError) {
+      showError(`Failed to log ${scannedFood.name}.`);
+    } else {
+      showSuccess(`${scannedFood.name} logged successfully!`);
+      queryClient.invalidateQueries({ queryKey: ["mealLogs", today] });
+      queryClient.invalidateQueries({ queryKey: ["foods"] });
+      onOpenChange(false);
+      setScannedFood(null);
+    }
+  };
+
   const content = (
     <>
-      <Tabs defaultValue="search" className="w-full">
+      <Tabs
+        defaultValue="search"
+        className="w-full"
+        onValueChange={setActiveTab}
+        value={activeTab}
+      >
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="search">
             <SearchIcon className="h-4 w-4 mr-2" />
             Search
           </TabsTrigger>
-          <TabsTrigger value="barcode" disabled>
+          <TabsTrigger value="barcode">
             <Barcode className="h-4 w-4 mr-2" />
             Barcode
           </TabsTrigger>
@@ -141,6 +239,36 @@ export const AddFoodDrawer = ({
               </Card>
             ))}
           </div>
+        </TabsContent>
+        <TabsContent value="barcode" className="mt-4">
+          {activeTab === "barcode" && (
+            <BarcodeScanner
+              onScanSuccess={handleScanSuccess}
+              onScanFailure={handleScanFailure}
+            />
+          )}
+          {isLookingUp && (
+            <div className="flex items-center justify-center p-4">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <p className="ml-2">Looking up barcode...</p>
+            </div>
+          )}
+          {lookupError && (
+            <p className="text-destructive text-center p-4">{lookupError}</p>
+          )}
+          {scannedFood && (
+            <Card className="mt-4 bg-secondary">
+              <CardContent className="p-3">
+                <p className="font-semibold">{scannedFood.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {scannedFood.calories} kcal, {scannedFood.serving_size}
+                </p>
+                <Button className="w-full mt-2" onClick={handleAddScannedFood}>
+                  Add to {mealType}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
       <div className="mt-4">
